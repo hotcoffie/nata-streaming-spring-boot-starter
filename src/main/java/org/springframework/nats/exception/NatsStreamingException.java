@@ -1,4 +1,4 @@
-package org.springframework.nats;
+package org.springframework.nats.exception;
 
 /**
  * The Spring NatsStreamingException implementation

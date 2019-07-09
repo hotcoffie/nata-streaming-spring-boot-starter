@@ -1,4 +1,4 @@
-package org.springframework.nats;
+package org.springframework.nats.properties;
 
 import lombok.Getter;
 import lombok.Setter;

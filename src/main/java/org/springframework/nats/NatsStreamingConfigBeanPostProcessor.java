@@ -7,6 +7,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.nats.annotation.Subscribe;
+import org.springframework.nats.exception.NatsStreamingException;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;

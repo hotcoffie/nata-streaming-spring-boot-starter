@@ -9,6 +9,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Role;
+import org.springframework.nats.properties.NatsStreamingProperties;
+import org.springframework.nats.properties.NatsStreamingSubProperties;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;

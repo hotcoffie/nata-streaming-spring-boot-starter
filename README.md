@@ -38,7 +38,7 @@ spring:
       urls: nats://[user:passwd@]host:port
 ```
 
-更多配置详见`org.springframework.nats.NatsStreamingSubProperties`和`org.springframework.nats.NatsStreamingProperties`
+更多配置详见`org.springframework.nats.properties.NatsStreamingSubProperties`和`org.springframework.nats.properties.NatsStreamingProperties`
 
 4.主题订阅
 
