@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Role;
 import org.springframework.nats.properties.NatsStreamingProperties;
 import org.springframework.nats.properties.NatsStreamingSubProperties;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +39,10 @@ public class NatsStreamingConfiguration {
                 .deliverAllAvailable();
         if (properties.isManualAcks()) {
             builder.manualAcks();
+        }
+        String durableName = properties.getDurableName();
+        if (StringUtils.hasLength(durableName)) {
+            builder.durableName(durableName);
         }
         return builder.build();
     }

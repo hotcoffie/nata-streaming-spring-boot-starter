@@ -34,9 +34,4 @@ public @interface Subscribe {
      * @return the nats queue name
      */
     String queue() default "";
-
-    /**
-     * @return
-     */
-    String durableName() default "";
 }
