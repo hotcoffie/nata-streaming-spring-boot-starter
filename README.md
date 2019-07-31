@@ -43,7 +43,7 @@ spring:
 4.主题订阅
 
 ```java
-@Subscribe(subscribe = "testSubscribe", queue = "testQueue")
+@NatsStreamingSubscribe(subscribe = "testSubscribe", queue = "testQueue")
 public void doSth(Message msg) {
     System.out.println(msg.toString());
 }

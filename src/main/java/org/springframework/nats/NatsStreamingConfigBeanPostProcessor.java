@@ -6,7 +6,7 @@ import io.nats.streaming.SubscriptionOptions;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.nats.annotation.Subscribe;
+import org.springframework.nats.annotation.NatsStreamingSubscribe;
 import org.springframework.nats.exception.NatsStreamingException;
 
 import java.io.IOException;
@@ -16,7 +16,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Nats Streaming 处理类 主要是注册{@link Subscribe}
+ * Nats Streaming 处理类 主要是注册{@link NatsStreamingSubscribe}
  *
  * @author 谢宇
  * Date: 2019/7/9
@@ -41,7 +41,7 @@ public class NatsStreamingConfigBeanPostProcessor implements BeanPostProcessor {
 
         final Class<?> clazz = bean.getClass();
         Arrays.stream(clazz.getMethods()).forEach(method -> {
-            Optional<Subscribe> sub = Optional.ofNullable(AnnotationUtils.findAnnotation(method, Subscribe.class));
+            Optional<NatsStreamingSubscribe> sub = Optional.ofNullable(AnnotationUtils.findAnnotation(method, NatsStreamingSubscribe.class));
             sub.ifPresent(subscribe -> {
                 final Class<?>[] parameterTypes = method.getParameterTypes();
                 if (parameterTypes.length != 1 || !parameterTypes[0].equals(Message.class)) {
@@ -50,7 +50,7 @@ public class NatsStreamingConfigBeanPostProcessor implements BeanPostProcessor {
                             method.toGenericString(),
                             beanName,
                             Message.class.getName(),
-                            Subscribe.class.getName()
+                            NatsStreamingSubscribe.class.getName()
                     ));
                 }
                 try {

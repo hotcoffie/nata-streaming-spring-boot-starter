@@ -17,5 +17,4 @@ public class NatsStreamingProperties {
     private String urls = "nats://localhost:4222";
     private String clusterId = "test-cluster";
     private String clientId = "test-client";
-
 }
