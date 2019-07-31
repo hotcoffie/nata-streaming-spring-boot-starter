@@ -11,7 +11,7 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 @Documented
-public @interface Subscribe {
+public @interface NatsStreamingSubscribe {
 
 
     /**
@@ -34,4 +34,11 @@ public @interface Subscribe {
      * @return the nats queue name
      */
     String queue() default "";
+
+    /**
+     * 如果用户配置了这个属性，则从配置文件指定位置获取消息主题，取代subscribe属性配置的主题
+     *
+     * @return 配置在yml文件中的位置
+     */
+    String propertyPath() default "";
 }
