@@ -1,5 +1,6 @@
 package org.springframework.nats;
 
+import io.nats.client.Dispatcher;
 import io.nats.streaming.Message;
 import io.nats.streaming.StreamingConnection;
 import io.nats.streaming.SubscriptionOptions;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.env.Environment;
 import org.springframework.nats.annotation.NatsStreamingSubscribe;
+import org.springframework.nats.enums.ConnectionType;
 import org.springframework.nats.exception.NatsStreamingException;
 import org.springframework.util.StringUtils;
 
@@ -28,13 +30,13 @@ import java.util.concurrent.TimeoutException;
 @Slf4j
 public class NatsStreamingConfigBeanPostProcessor implements BeanPostProcessor {
 
-    private StreamingConnection sc;
+    private StreamingConnection template;
     private SubscriptionOptions options;
     @Autowired
     private Environment env;
 
-    public NatsStreamingConfigBeanPostProcessor(StreamingConnection sc, SubscriptionOptions options) {
-        this.sc = sc;
+    public NatsStreamingConfigBeanPostProcessor(NatsStreamingTemplate template, SubscriptionOptions options) {
+        this.template = template;
         this.options = options;
     }
 
@@ -50,16 +52,7 @@ public class NatsStreamingConfigBeanPostProcessor implements BeanPostProcessor {
         Arrays.stream(clazz.getMethods()).forEach(method -> {
             Optional<NatsStreamingSubscribe> sub = Optional.ofNullable(AnnotationUtils.findAnnotation(method, NatsStreamingSubscribe.class));
             sub.ifPresent(subscribe -> {
-                final Class<?>[] parameterTypes = method.getParameterTypes();
-                if (parameterTypes.length != 1 || !parameterTypes[0].equals(Message.class)) {
-                    throw new NatsStreamingException(String.format(
-                            "Method '%s' on bean with name '%s' must have a single parameter of type %s when using the @%s annotation.",
-                            method.toGenericString(),
-                            beanName,
-                            Message.class.getName(),
-                            NatsStreamingSubscribe.class.getName()
-                    ));
-                }
+
                 String topic = subscribe.subscribe();
                 //如果用户配置了外部配置的主题，则覆盖代码内主题
                 String propertyPath = subscribe.propertyPath();
@@ -68,18 +61,57 @@ public class NatsStreamingConfigBeanPostProcessor implements BeanPostProcessor {
                     topic = topicTemp != null ? topicTemp : topic;
                 }
 
-                try {
-                    sc.subscribe(topic, "".equals(subscribe.queue()) ? null : subscribe.queue(), msg -> {
+                String queue = subscribe.queue();
+
+                final Class<?>[] parameterTypes = method.getParameterTypes();
+                NatsStreamingException en = new NatsStreamingException(String.format(
+                        "Method '%s' on bean with name '%s' must have a single parameter of type %s when using the @%s annotation.",
+                        method.toGenericString(),
+                        beanName,
+                        Message.class.getName(),
+                        NatsStreamingSubscribe.class.getName()
+                ));
+
+                if (subscribe.connectionType() == ConnectionType.Nats) {
+                    if (parameterTypes.length != 1 || !parameterTypes[0].equals(io.nats.client.Message.class)) {
+                        throw en;
+                    }
+                    Dispatcher d = template.getNatsConnection().createDispatcher(msg -> {
                         try {
                             method.invoke(bean, msg);
                         } catch (IllegalAccessException | InvocationTargetException e) {
                             log.error("订阅回调失败", e);
                         }
-                    }, options);
-                } catch (IOException | InterruptedException | TimeoutException e) {
-                    log.error("nats异常", e);
-                    Thread.currentThread().interrupt();
+                    });
+
+                    //这愚蠢的写法完全是因为写驱动的人非要在subscribe(topic, queue)中要求queue不能为空
+                    if ("".equals(queue)) {
+                        d.subscribe(topic);
+                    } else {
+                        d.subscribe(topic, queue);
+                    }
+                    log.info("成功订阅Nats消息，主题：{}", topic);
+                } else {
+                    if (parameterTypes.length != 1 || !parameterTypes[0].equals(Message.class)) {
+                        throw en;
+                    }
+
+                    queue = "".equals(queue) ? null : queue;
+                    try {
+                        template.subscribe(topic, queue, msg -> {
+                            try {
+                                method.invoke(bean, msg);
+                            } catch (IllegalAccessException | InvocationTargetException e) {
+                                log.error("订阅回调失败", e);
+                            }
+                        }, options);
+                        log.info("成功订阅Nats Streaming消息，主题：{}", topic);
+                    } catch (IOException | InterruptedException | TimeoutException e) {
+                        log.error("Nats Streaming异常", e);
+                        Thread.currentThread().interrupt();
+                    }
                 }
+
             });
         });
         return bean;

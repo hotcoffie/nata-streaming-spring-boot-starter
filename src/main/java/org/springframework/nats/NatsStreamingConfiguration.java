@@ -1,9 +1,7 @@
 package org.springframework.nats;
 
-import io.nats.streaming.NatsStreaming;
-import io.nats.streaming.Options;
-import io.nats.streaming.StreamingConnection;
 import io.nats.streaming.SubscriptionOptions;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -13,7 +11,6 @@ import org.springframework.nats.properties.NatsStreamingProperties;
 import org.springframework.nats.properties.NatsStreamingSubProperties;
 import org.springframework.util.StringUtils;
 
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -24,12 +21,16 @@ import java.util.concurrent.TimeUnit;
  */
 @Configuration
 @EnableConfigurationProperties({NatsStreamingProperties.class, NatsStreamingSubProperties.class})
+@Slf4j
 public class NatsStreamingConfiguration {
     @Bean
-    public StreamingConnection streamingConnection(NatsStreamingProperties properties) throws IOException, InterruptedException {
-        Options opts = new Options.Builder().natsUrl(properties.getUrls()).build();
-        return NatsStreaming.connect(properties.getClusterId(), properties.getClientId(), opts);
+    public NatsStreamingTemplate streamingConnection(NatsStreamingProperties properties) {
+        NatsStreamingTemplate template = new NatsStreamingTemplate();
+        template.connect(properties);
+        return template;
+
     }
+
 
     @Bean
     public SubscriptionOptions options(NatsStreamingSubProperties properties) {
@@ -49,7 +50,7 @@ public class NatsStreamingConfiguration {
 
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    public NatsStreamingConfigBeanPostProcessor configBeanPostProcessor(StreamingConnection connection, SubscriptionOptions options) {
-        return new NatsStreamingConfigBeanPostProcessor(connection, options);
+    public NatsStreamingConfigBeanPostProcessor configBeanPostProcessor(NatsStreamingTemplate template, SubscriptionOptions options) {
+        return new NatsStreamingConfigBeanPostProcessor(template, options);
     }
 }

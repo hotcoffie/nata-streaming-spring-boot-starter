@@ -1,6 +1,7 @@
 package org.springframework.nats.annotation;
 
 import org.springframework.core.annotation.AliasFor;
+import org.springframework.nats.enums.ConnectionType;
 
 import java.lang.annotation.*;
 
@@ -12,7 +13,6 @@ import java.lang.annotation.*;
 @Target(ElementType.METHOD)
 @Documented
 public @interface NatsStreamingSubscribe {
-
 
     /**
      * @return {@link #subscribe()}
@@ -41,4 +41,11 @@ public @interface NatsStreamingSubscribe {
      * @return 配置在yml文件中的位置
      */
     String propertyPath() default "";
+
+    /**
+     * 订阅方式，默认使用NatsStreaming订阅
+     *
+     * @return 订阅方式枚举
+     */
+    ConnectionType connectionType() default ConnectionType.NatsStreaming;
 }
