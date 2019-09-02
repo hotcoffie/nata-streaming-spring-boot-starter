@@ -23,14 +23,6 @@ import java.util.concurrent.TimeUnit;
 @EnableConfigurationProperties({NatsStreamingProperties.class, NatsStreamingSubProperties.class})
 @Slf4j
 public class NatsStreamingConfiguration {
-    @Bean
-    public NatsStreamingTemplate streamingConnection(NatsStreamingProperties properties) {
-        NatsStreamingTemplate template = new NatsStreamingTemplate();
-        template.connect(properties);
-        return template;
-
-    }
-
 
     @Bean
     public SubscriptionOptions options(NatsStreamingSubProperties properties) {
@@ -49,8 +41,15 @@ public class NatsStreamingConfiguration {
     }
 
     @Bean
+    public NatsStreamingTemplate streamingConnection(NatsStreamingProperties properties, SubscriptionOptions options) {
+        NatsStreamingTemplate template = new NatsStreamingTemplate(options);
+        template.connect(properties);
+        return template;
+    }
+
+    @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    public NatsStreamingConfigBeanPostProcessor configBeanPostProcessor(NatsStreamingTemplate template, SubscriptionOptions options) {
-        return new NatsStreamingConfigBeanPostProcessor(template, options);
+    public NatsStreamingConfigBeanPostProcessor configBeanPostProcessor(NatsStreamingTemplate template) {
+        return new NatsStreamingConfigBeanPostProcessor(template);
     }
 }
