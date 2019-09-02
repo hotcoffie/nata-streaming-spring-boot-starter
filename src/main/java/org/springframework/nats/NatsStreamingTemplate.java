@@ -103,17 +103,15 @@ public class NatsStreamingTemplate {
                 String queue = subscribe.queue();
 
                 final Class<?>[] parameterTypes = method.getParameterTypes();
-                NatsStreamingException en = new NatsStreamingException(String.format(
-                        "Method '%s' on bean with name '%s' must have a single parameter of type %s when using the @%s annotation.",
-                        method.toGenericString(),
-                        beanName,
-                        Message.class.getName(),
-                        NatsStreamingSubscribe.class.getName()
-                ));
-
                 if (subscribe.connectionType() == ConnectionType.Nats) {
                     if (parameterTypes.length != 1 || !parameterTypes[0].equals(io.nats.client.Message.class)) {
-                        throw en;
+                        throw  new NatsStreamingException(String.format(
+                                "Method '%s' on bean with name '%s' must have a single parameter of type %s when using the @%s annotation.",
+                                method.toGenericString(),
+                                beanName,
+                                io.nats.client.Message.class.getName(),
+                                NatsStreamingSubscribe.class.getName()
+                        ));
                     }
                     Dispatcher d = getNatsConnection().createDispatcher(msg -> {
                         try {
@@ -132,7 +130,13 @@ public class NatsStreamingTemplate {
                     log.info("成功订阅Nats消息，主题：{}", topic);
                 } else {
                     if (parameterTypes.length != 1 || !parameterTypes[0].equals(Message.class)) {
-                        throw en;
+                        throw  new NatsStreamingException(String.format(
+                                "Method '%s' on bean with name '%s' must have a single parameter of type %s when using the @%s annotation.",
+                                method.toGenericString(),
+                                beanName,
+                                Message.class.getName(),
+                                NatsStreamingSubscribe.class.getName()
+                        ));
                     }
 
                     queue = "".equals(queue) ? null : queue;
