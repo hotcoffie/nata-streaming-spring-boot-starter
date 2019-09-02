@@ -17,5 +17,7 @@ public class NatsStreamingProperties {
     private String urls = "nats://localhost:4222";
     private String clusterId = "test-cluster";
     private String clientId = "test-client";
-    private int interval = 3;
+    private int reConnInterval = 3;
+    private int maxPingsOut = 3;
+    private int pingInterval = 3;
 }

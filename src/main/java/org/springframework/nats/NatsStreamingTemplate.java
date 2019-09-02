@@ -50,9 +50,14 @@ public class NatsStreamingTemplate {
     void connect(NatsStreamingProperties properties) {
         Options opts = new Options.Builder()
                 .natsUrl(properties.getUrls())
-                .maxPingsOut(3)
-                .pingInterval(Duration.ofSeconds(3))
+                .maxPingsOut(properties.getMaxPingsOut())
+                .pingInterval(Duration.ofSeconds(properties.getPingInterval()))
                 .connectionLostHandler((conn, ex) -> {
+                    try {
+                        this.close();
+                    } catch (InterruptedException e) {
+                        log.error("Nats Streaming(" + properties.getUrls() + ")连接关闭失败", e);
+                    }
                     this.connect(properties);
                     subBeans.forEach((beanName, bean) -> doSub(bean, beanName, true));
                 })
@@ -63,11 +68,11 @@ public class NatsStreamingTemplate {
                 this.sc = NatsStreaming.connect(properties.getClusterId(), properties.getClientId(), opts);
                 break;
             } catch (IOException | InterruptedException e) {
-                log.error("Nats Streaming(" + properties.getUrls() + ")连接失败，" + properties.getInterval() + "秒后重新尝试连接", e);
+                log.error("Nats Streaming(" + properties.getUrls() + ")连接失败，" + properties.getReConnInterval() + "秒后重新尝试连接", e);
             }
 
             try {
-                Thread.sleep(TimeUnit.SECONDS.toMillis(properties.getInterval()));
+                Thread.sleep(TimeUnit.SECONDS.toMillis(properties.getReConnInterval()));
             } catch (InterruptedException e) {
                 log.error("重连延时失败！", e);
             }
@@ -181,7 +186,9 @@ public class NatsStreamingTemplate {
         return sc.getNatsConnection();
     }
 
-    public void close() throws IOException, TimeoutException, InterruptedException {
-        sc.close();
+    public void close() throws InterruptedException {
+        if (this.sc.getNatsConnection() != null) {
+            this.sc.getNatsConnection().close();
+        }
     }
 }
