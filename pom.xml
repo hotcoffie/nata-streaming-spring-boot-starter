@@ -47,19 +47,19 @@
         <dependency>
             <groupId>io.nats</groupId>
             <artifactId>java-nats-streaming</artifactId>
-            <version>2.2.0</version>
-            <exclusions>
+            <version>2.2.2</version>
+<!--            <exclusions>
                 <exclusion>
                     <groupId>io.nats</groupId>
                     <artifactId>java-nats</artifactId>
                 </exclusion>
-            </exclusions>
+            </exclusions>-->
         </dependency>
-        <dependency>
+ <!--       <dependency>
             <groupId>io.nats</groupId>
             <artifactId>jnats</artifactId>
-            <version>2.6.0</version>
-        </dependency>
+            <version>2.6.4</version>
+        </dependency>-->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
