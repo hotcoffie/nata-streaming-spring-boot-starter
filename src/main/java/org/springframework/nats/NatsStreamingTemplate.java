@@ -20,8 +20,12 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Description:
@@ -37,6 +41,8 @@ public class NatsStreamingTemplate {
     private StreamingConnection sc;
     private SubscriptionOptions options;
     private HashMap<String, Object> subBeans = new HashMap<>();
+    private Queue<PublishCache> publishCache;
+    private Lock publishCacheLock = new ReentrantLock();
 
     NatsStreamingTemplate(SubscriptionOptions options) {
         this.options = options;
@@ -60,6 +66,15 @@ public class NatsStreamingTemplate {
                     }
                     this.connect(properties);
                     subBeans.forEach((beanName, bean) -> doSub(bean, beanName, true));
+
+                    while (!publishCache.isEmpty()) {
+                        PublishCache cache = publishCache.poll();
+                        try {
+                            this.safePublish(cache.getSubject(), cache.getData(), cache.getAh());
+                        } catch (TimeoutException | InterruptedException | IOException e) {
+                            log.error("消息发送失败！", e);
+                        }
+                    }
                 })
                 .build();
         while (true) {
@@ -105,7 +120,7 @@ public class NatsStreamingTemplate {
                 final Class<?>[] parameterTypes = method.getParameterTypes();
                 if (subscribe.connectionType() == ConnectionType.Nats) {
                     if (parameterTypes.length != 1 || !parameterTypes[0].equals(io.nats.client.Message.class)) {
-                        throw  new NatsStreamingException(String.format(
+                        throw new NatsStreamingException(String.format(
                                 "Method '%s' on bean with name '%s' must have a single parameter of type %s when using the @%s annotation.",
                                 method.toGenericString(),
                                 beanName,
@@ -130,7 +145,7 @@ public class NatsStreamingTemplate {
                     log.info("成功订阅Nats消息，主题：{}", topic);
                 } else {
                     if (parameterTypes.length != 1 || !parameterTypes[0].equals(Message.class)) {
-                        throw  new NatsStreamingException(String.format(
+                        throw new NatsStreamingException(String.format(
                                 "Method '%s' on bean with name '%s' must have a single parameter of type %s when using the @%s annotation.",
                                 method.toGenericString(),
                                 beanName,
@@ -168,6 +183,65 @@ public class NatsStreamingTemplate {
 
     public String publish(String subject, byte[] data, AckHandler ah) throws IOException, InterruptedException, TimeoutException {
         return sc.publish(subject, data, ah);
+    }
+
+    public void safePublish(String subject, byte[] data) throws TimeoutException, InterruptedException, IOException {
+        this.safePublish(subject, data, null);
+    }
+
+    public String safePublish(String subject, byte[] data, AckHandler ah) throws TimeoutException, InterruptedException, IOException {
+        try {
+            return sc.publish(subject, data, (nuid, ex) -> {
+                if (ex instanceof InterruptedException) {
+                    log.warn("网络原因消息发送失败，消息已缓存，将在恢复连接后重新发送！", ex);
+                    doCache(new PublishCache(subject, data, ah));
+                } else {
+                    ah.onAck(nuid, ex);
+                }
+            });
+        } catch (IllegalStateException e) {
+            log.warn("网络原因消息发送失败，消息已缓存，将在恢复连接后重新发送！", e);
+            doCache(new PublishCache(subject, data, ah));
+        }
+        return null;
+    }
+
+    /**
+     * 缓存网络问题发送失败的消息
+     */
+    private void doCache(PublishCache cache) {
+        initCache();
+        publishCacheLock.lock();
+        try {
+            boolean success = publishCache.offer(cache);
+            if (!success) {
+                PublishCache firstCache = publishCache.poll();
+                if (firstCache == null) {
+                    log.warn("消息缓存队列已满，放弃较早的消息");
+                } else {
+                    log.warn("消息缓存队列已满，放弃较早的消息：{}", firstCache.toString());
+                }
+                success = publishCache.offer(cache);
+            }
+        } finally {
+            publishCacheLock.unlock();
+        }
+    }
+
+    /**
+     * 初始化缓存
+     */
+    private void initCache() {
+        while (publishCache == null) {
+            publishCacheLock.lock();
+            try {
+                while (publishCache == null) {
+                    publishCache = new ConcurrentLinkedQueue<>();
+                }
+            } finally {
+                publishCacheLock.unlock();
+            }
+        }
     }
 
     public Subscription subscribe(String subject, MessageHandler cb) throws IOException, InterruptedException, TimeoutException {
