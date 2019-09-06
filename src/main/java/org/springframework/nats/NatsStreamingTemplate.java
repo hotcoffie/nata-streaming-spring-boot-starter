@@ -41,7 +41,7 @@ public class NatsStreamingTemplate {
     private StreamingConnection sc;
     private SubscriptionOptions options;
     private HashMap<String, Object> subBeans = new HashMap<>();
-    private Queue<PublishCache> publishCache;
+    private Queue<PublishCache> msgQueue;
     private Lock publishCacheLock = new ReentrantLock();
 
     NatsStreamingTemplate(SubscriptionOptions options) {
@@ -66,15 +66,7 @@ public class NatsStreamingTemplate {
                     }
                     this.connect(properties);
                     subBeans.forEach((beanName, bean) -> doSub(bean, beanName, true));
-
-                    while (!publishCache.isEmpty()) {
-                        PublishCache cache = publishCache.poll();
-                        try {
-                            this.safePublish(cache.getSubject(), cache.getData(), cache.getAh());
-                        } catch (TimeoutException | InterruptedException | IOException e) {
-                            log.error("消息发送失败！", e);
-                        }
-                    }
+                    republish();
                 })
                 .build();
         while (true) {
@@ -213,15 +205,15 @@ public class NatsStreamingTemplate {
         initCache();
         publishCacheLock.lock();
         try {
-            boolean success = publishCache.offer(cache);
-            if (!success) {
-                PublishCache firstCache = publishCache.poll();
+            boolean success = msgQueue.offer(cache);
+            while (!success) {
+                PublishCache firstCache = msgQueue.poll();
                 if (firstCache == null) {
                     log.warn("消息缓存队列已满，放弃较早的消息");
                 } else {
                     log.warn("消息缓存队列已满，放弃较早的消息：{}", firstCache.toString());
                 }
-                success = publishCache.offer(cache);
+                success = msgQueue.offer(cache);
             }
         } finally {
             publishCacheLock.unlock();
@@ -232,14 +224,25 @@ public class NatsStreamingTemplate {
      * 初始化缓存
      */
     private void initCache() {
-        while (publishCache == null) {
+        while (msgQueue == null) {
             publishCacheLock.lock();
             try {
-                while (publishCache == null) {
-                    publishCache = new ConcurrentLinkedQueue<>();
+                while (msgQueue == null) {
+                    msgQueue = new ConcurrentLinkedQueue<>();
                 }
             } finally {
                 publishCacheLock.unlock();
+            }
+        }
+    }
+
+    private void republish(){
+        while (!msgQueue.isEmpty()) {
+            PublishCache cache = msgQueue.poll();
+            try {
+                this.safePublish(cache.getSubject(), cache.getData(), cache.getAh());
+            } catch (TimeoutException | InterruptedException | IOException e) {
+                log.error("消息发送失败！", e);
             }
         }
     }
